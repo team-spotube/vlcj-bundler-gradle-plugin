@@ -129,9 +129,6 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Windows extraction – strict whitelist of required DLLs
-    // ------------------------------------------------------------------
     private fun downloadAndStripWindows(urlStr: String, targetDir: File) {
         val allowedFiles = setOf(
             "libvlc.dll",
@@ -214,8 +211,7 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
                         entry = zip.nextEntry
                         continue
                     }
-                    val keep = relativePath in allowedFiles
-                    if (keep) {
+                    if (relativePath in allowedFiles) {
                         val destFile = File(targetDir, relativePath)
                         if (entry.isDirectory) {
                             destFile.mkdirs()
@@ -231,11 +227,7 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
         println("Windows streaming audio binaries successfully filtered and unpacked.")
     }
 
-    // ------------------------------------------------------------------
-    // macOS extraction – download DMG, mount, copy, strip, unmount
-    // ------------------------------------------------------------------
     private fun downloadAndStripMacos(urlStr: String, targetDir: File) {
-        // Whitelist of audio‑only plugins (flat list, as they appear in the DMG)
         val allowedPlugins = setOf(
             "plugins.dat",
 
@@ -329,10 +321,23 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
             val libSrcDir = File(appDir, "Contents/MacOS/lib")
             val pluginsSrcDir = File(appDir, "Contents/MacOS/plugins")
 
-            // Copy the ENTIRE lib/ directory recursively (preserves real .dylib files)
+            // 1. Copy the ENTIRE lib/ directory recursively
             val targetLibDir = File(targetDir, "lib")
             libSrcDir.copyRecursively(targetLibDir, overwrite = true)
 
+            // 2. Copy only whitelisted plugins into targetDir/plugins/ (Moved up)
+            val targetPluginsDir = File(targetDir, "plugins")
+            targetPluginsDir.mkdirs()
+            allowedPlugins.forEach { pluginName ->
+                val src = File(pluginsSrcDir, pluginName)
+                if (src.exists()) {
+                    src.copyTo(File(targetPluginsDir, pluginName), overwrite = true)
+                } else {
+                    println("Warning: missing whitelisted plugin: $pluginName")
+                }
+            }
+
+            // 3. Structural Link Adjustments: libvlc
             ProcessBuilder(
                 "install_name_tool",
                 "-change", "@rpath/libvlccore.dylib", "@loader_path/libvlccore.dylib",
@@ -345,11 +350,23 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
                 File(targetLibDir, "libvlccore.dylib").absolutePath
             ).inheritIO().start().waitFor()
 
+            // 4. Structural Link Adjustments: Plugins (FIXES THE BUG)
+            // Instructs plugins inside 'plugins/' to go up one directory and look in 'lib/'
+            targetPluginsDir.walkTopDown().filter { it.isFile && it.extension == "dylib" }.forEach { pluginFile ->
+                ProcessBuilder(
+                    "install_name_tool",
+                    "-change", "@rpath/libvlccore.dylib", "@loader_path/../lib/libvlccore.dylib",
+                    pluginFile.absolutePath
+                ).inheritIO().start().waitFor()
+            }
+
+            // 5. Clear quarantine flag
             ProcessBuilder("xattr", "-dr", "com.apple.quarantine", targetDir.absolutePath)
                 .inheritIO().start().waitFor()
 
-            listOf(File(targetDir, "lib"), File(targetDir, "plugins")).forEach { dir ->
-                dir.walkTopDown().filter { it.extension == "dylib" }.forEach { file ->
+            // 6. CODESIGN: Must be run as the absolute last step after all modifications
+            listOf(targetLibDir, targetPluginsDir).forEach { dir ->
+                dir.walkTopDown().filter { it.isFile && it.extension == "dylib" }.forEach { file ->
                     ProcessBuilder("codesign", "--force", "--sign", "-", file.absolutePath)
                         .inheritIO()
                         .start()
@@ -357,17 +374,6 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
                 }
             }
 
-            // Copy only whitelisted plugins into targetDir/plugins/
-            val targetPluginsDir = File(targetDir, "plugins")
-            targetPluginsDir.mkdirs()
-            allowedPlugins.forEach { pluginName ->
-                val src = File(pluginsSrcDir, pluginName)
-                if (src.exists()) {
-                    src.copyTo(File(targetPluginsDir, pluginName), overwrite = true)
-                } else {
-                    println("Warning: missing whitelisted plugin: $pluginName")
-                }
-            }
         } finally {
             ProcessBuilder("hdiutil", "detach", mountPoint)
                 .redirectErrorStream(true)
@@ -376,4 +382,5 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
             dmgFile.delete()
         }
         println("macOS streaming audio binaries successfully filtered and unpacked.")
-    }}
+    }
+}
