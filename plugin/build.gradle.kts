@@ -13,9 +13,10 @@ plugins {
 
     // Apply the Kotlin JVM plugin to add support for Kotlin.
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.compose) apply false
 }
 
-group = "dev.krtirtho.spotube"
+group = "dev.krtirtho.vlcj-bundler"
 version = "0.1.0"
 
 repositories {
@@ -25,6 +26,9 @@ repositories {
 }
 
 dependencies {
+    compileOnly(libs.kotlinLib)
+    compileOnly(libs.composeLib)
+
     // Use the Kotlin Test integration.
     testImplementation("org.jetbrains.kotlin:kotlin-test")
 
@@ -33,12 +37,12 @@ dependencies {
 
 gradlePlugin {
     // Define the plugin
-    val spotubeGradlePlugin by plugins.creating {
-        id = "dev.krtirtho.spotube.gradle-plugin"
-        implementationClass = "dev.krtirtho.SpotubeGradlePluginPlugin"
+    val vlcjBundlerGradlePlugin by plugins.creating {
+        id = "dev.krtirtho.vlcj-bundler.gradle-plugin"
+        implementationClass = "dev.krtirtho.VlcjBundlerGradlePlugin"
         version = "0.1.0"
-        displayName = "Spotube Gradle Plugin"
-        description = "A Gradle plugin for Spotube that packages Zipline executables into smplug files."
+        displayName = "vlcj Bundler Gradle Plugin"
+        description = "A Gradle plugin for vlcj that packages VLC native libraries into Compose-Multiplatform projects."
     }
 }
 

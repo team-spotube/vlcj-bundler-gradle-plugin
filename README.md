@@ -1,16 +1,16 @@
-# Spotube Gradle Plugin
+# vlcj Bundler Gradle Plugin
 
-A Gradle plugin for Spotube that packages Zipline executables into `.smplug` files for Spotube plugin projects.
+A Gradle plugin for vlcj that downloads and bundles the necessary native libraries for vlcj into a single distributable package. This plugin simplifies the process of including vlcj in your projects by automating the packaging of native dependencies.
 
 ## Overview
 
-This plugin automatically creates packaging tasks when applied alongside the [app.cash.zipline](https://cashapp.github.io/zipline/) plugin. It bundles Zipline compiler outputs with your `plugin.json` into distributable `.smplug` files.
+This plugin automatically creates packaging tasks when applied alongside the [vlcj](https://www.capricasoftware.co.uk/projects/vlcj) plugin. It bundles vlcj native libraries into distributable packages.
 
 ## Requirements
 
 - Gradle 9.4+
 - Kotlin JVM plugin
-- Zipline
+- vlcj plugin
 
 ## Installation
 
@@ -18,7 +18,7 @@ This plugin automatically creates packaging tasks when applied alongside the [ap
 
 ```groovy
 plugins {
-    id 'dev.krtirtho.spotube.gradle-plugin' version '0.1.0'
+    id 'dev.krtirtho.vlcj-bundler.gradle-plugin' version '0.1.0'
 }
 ```
 
@@ -26,7 +26,7 @@ plugins {
 
 ```kotlin
 plugins {
-    id("dev.krtirtho.spotube.gradle-plugin") version "0.1.0"
+    id("dev.krtirtho.vlcj-bundler.gradle-plugin") version "0.1.0"
 }
 ```
 
@@ -36,7 +36,7 @@ Add the plugin to your version catalog (`gradle/libs.versions.toml`):
 
 ```toml
 [plugins]
-spotube = { id = "dev.krtirtho.spotube.gradle-plugin", version = "0.1.0" }
+vlcj-bundler = { id = "dev.krtirtho.vlcj-bundler.gradle-plugin", version = "0.1.0" }
 ```
 
 Then reference it in your build files:
@@ -44,43 +44,18 @@ Then reference it in your build files:
 ```kotlin
 // build.gradle.kts
 plugins {
-    alias(libs.plugins.spotube)
+    alias(libs.plugins.vlcjBundler)
 }
 ```
 
 ## Usage
 
-Apply the plugin after the Zipline plugin:
+Apply the plugin after the vlcj plugin:
 
 ```kotlin
 plugins {
-    id("app.cash.zipline")
-    id("dev.krtirtho.spotube.gradle-plugin")
+    id("dev.krtirtho.vlcj-bundler.gradle-plugin")
 }
-```
-
-The plugin automatically registers two tasks:
-
-| Task | Description |
-|------|-------------|
-| `packageDevelopmentPlugin` | Packages the development Zipline build into `plugin-development.smplug` |
-| `packageProductionPlugin` | Packages the production Zipline build into `plugin-production.smplug` |
-
-Output files are placed in `build/distributions/`.
-
-### Prerequisites
-
-Ensure your project contains a `plugin.json` file at the project root, as it is automatically included in the package.
-
-## Tasks
-
-```
-$ ./gradlew tasks --group distribution
-
-Distribution tasks
-------------------
-packageDevelopmentPlugin - Packages the development Zipline executable and plugin.json into a smplug.
-packageProductionPlugin  - Packages the production Zipline executable and plugin.json into a smplug.
 ```
 
 ## License
