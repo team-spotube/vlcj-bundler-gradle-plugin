@@ -98,14 +98,16 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
         val (osDir, downloadUrl) = when {
             os.contains("win") -> {
                 if (arch.contains("aarch64") || arch.contains("arm64")) {
-                    "win-arm64" to "https://get.videolan.org/vlc/$vlcVersion/winarm64/vlc-$vlcVersion-winarm64.zip"
+                    "win-arm64" to "http://ftp.videolan.org/pub/videolan/vlc/$vlcVersion/winarm64/vlc-$vlcVersion-winarm64.zip"
                 } else {
-                    "win-x64" to "https://get.videolan.org/vlc/$vlcVersion/win64/vlc-$vlcVersion-win64.zip"
+                    "win-x64" to "http://ftp.videolan.org/pub/videolan/vlc/$vlcVersion/win64/vlc-$vlcVersion-win64.zip"
                 }
             }
+
             os.contains("mac") -> {
-                "macos-universal" to "https://get.videolan.org/vlc/$vlcVersion/macosx/vlc-$vlcVersion-universal.dmg"
+                "macos-universal" to "http://ftp.videolan.org/pub/videolan/vlc/$vlcVersion/macosx/vlc-$vlcVersion-universal.dmg"
             }
+
             else -> "linux-x64" to ""
         }
 
@@ -296,16 +298,19 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
 
         val dmgFile = File(buildDirectory.asFile.get(), "vlc-tmp.dmg")
         println("Downloading VLC DMG...")
-        URL(urlStr).openStream().use { input ->
-            dmgFile.outputStream().use { output ->
-                input.copyTo(output)
+        if (!dmgFile.exists()) {
+            URL(urlStr).openStream().use { input ->
+                dmgFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
             }
         }
 
         println("Mounting DMG...")
-        val mountProcess = ProcessBuilder("hdiutil", "attach", "-nobrowse", "-readonly", dmgFile.absolutePath)
-            .redirectErrorStream(true)
-            .start()
+        val mountProcess =
+            ProcessBuilder("hdiutil", "attach", "-nobrowse", "-readonly", dmgFile.absolutePath)
+                .redirectErrorStream(true)
+                .start()
         val mountOutput = mountProcess.inputStream.bufferedReader().readText()
         mountProcess.waitFor()
         val mountPoint = mountOutput.lines().lastOrNull { it.contains("/Volumes/") }
@@ -352,13 +357,16 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
 
             // 4. Structural Link Adjustments: Plugins (FIXES THE BUG)
             // Instructs plugins inside 'plugins/' to go up one directory and look in 'lib/'
-            targetPluginsDir.walkTopDown().filter { it.isFile && it.extension == "dylib" }.forEach { pluginFile ->
-                ProcessBuilder(
-                    "install_name_tool",
-                    "-change", "@rpath/libvlccore.dylib", "@loader_path/../lib/libvlccore.dylib",
-                    pluginFile.absolutePath
-                ).inheritIO().start().waitFor()
-            }
+            targetPluginsDir.walkTopDown().filter { it.isFile && it.extension == "dylib" }
+                .forEach { pluginFile ->
+                    ProcessBuilder(
+                        "install_name_tool",
+                        "-change",
+                        "@rpath/libvlccore.dylib",
+                        "@loader_path/../lib/libvlccore.dylib",
+                        pluginFile.absolutePath
+                    ).inheritIO().start().waitFor()
+                }
 
             // 5. Clear quarantine flag
             ProcessBuilder("xattr", "-dr", "com.apple.quarantine", targetDir.absolutePath)
@@ -379,7 +387,7 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
                 .redirectErrorStream(true)
                 .start()
                 .waitFor()
-            dmgFile.delete()
+//            dmgFile.delete()
         }
         println("macOS streaming audio binaries successfully filtered and unpacked.")
     }
