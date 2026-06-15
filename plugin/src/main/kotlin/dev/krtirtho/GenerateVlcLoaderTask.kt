@@ -57,9 +57,7 @@ abstract class GenerateVlcLoaderTask : DefaultTask() {
 
                     val osDir = when {
                         os.contains("win") -> "win-x64"
-                        os.contains("mac") -> {
-                            if (arch.contains("aarch64") || arch.contains("arm64")) "mac-arm64" else "mac-x64"
-                        }
+                        os.contains("mac") -> "macos-universal"
                         else -> "linux-x64"
                     }
 
@@ -79,12 +77,27 @@ abstract class GenerateVlcLoaderTask : DefaultTask() {
                     }
 
                     val absolutePath = vlcPath.absolutePath
+                    
+                    if (os.contains("mac")) {
+                        val pluginsPath = "$absolutePath/plugins"
+                        try {
+                            // Use JNA to invoke the native C standard library 'setenv' function directly.
+                            // This seamlessly updates the process environment variables without violating JVM encapsulation.
+                            val libc = NativeLibrary.getInstance("c")
+                            libc.getFunction("setenv").invokeInt(arrayOf<Any>("VLC_PLUGIN_PATH", pluginsPath, 1))
+                        } catch (t: Throwable) {
+                            // Fallback telemetry catch block if system linkage fails
+                        }
+                    }
 
                     // Inform JNA precisely where the dynamic linkers should target
-                    NativeLibrary.addSearchPath(RuntimeUtil.getLibVlcLibraryName(), absolutePath)
+                    NativeLibrary.addSearchPath(
+                        RuntimeUtil.getLibVlcLibraryName(), 
+                        if (os.contains("mac")) "$absolutePath/lib" else absolutePath,
+                    )
 
+                    System.setProperty("VLC_PLUGIN_PATH", "$absolutePath${File.separator}plugins")
                     if (os.contains("win")) {
-                        System.setProperty("VLC_PLUGIN_PATH", "$absolutePath${File.separator}plugins")
                         System.setProperty("VLC_FORCE_PLUGIN_CACHE", "0")
                     }
 

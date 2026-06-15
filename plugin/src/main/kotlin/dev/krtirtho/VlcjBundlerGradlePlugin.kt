@@ -1,6 +1,7 @@
 package dev.krtirtho
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.file.DirectoryProperty
@@ -76,7 +77,7 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
 }
 
 // --------------------------------------------------------------------
-// TASK: Download & extract VLC natives (with corrected backticks)
+// TASK: Download & extract VLC natives for both Windows and macOS
 // --------------------------------------------------------------------
 abstract class DownloadVlcNativesTask : DefaultTask() {
 
@@ -85,8 +86,7 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
 
     init {
         group = "dependencies"
-        description =
-            "Downloads and extracts lightweight VLC audio binaries directly into the build cache."
+        description = "Downloads and extracts lightweight VLC audio binaries for the current OS."
     }
 
     @TaskAction
@@ -103,11 +103,9 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
                     "win-x64" to "https://get.videolan.org/vlc/$vlcVersion/win64/vlc-$vlcVersion-win64.zip"
                 }
             }
-
             os.contains("mac") -> {
                 "macos-universal" to "https://get.videolan.org/vlc/$vlcVersion/macosx/vlc-$vlcVersion-universal.dmg"
             }
-
             else -> "linux-x64" to ""
         }
 
@@ -125,16 +123,16 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
         println("Downloading stripped VLC assets to build sandbox target: $targetDir")
         targetDir.mkdirs()
 
-        if (os.contains("win")) {
-            downloadAndStripWindows(downloadUrl, targetDir)
-        } else if (os.contains("mac")) {
-            println("⚠️ Automatic extraction of Mac DMG files needs terminal utility mounting pipelines.")
-            println("Please manually copy/extract files inside: $targetDir")
+        when {
+            os.contains("win") -> downloadAndStripWindows(downloadUrl, targetDir)
+            os.contains("mac") -> downloadAndStripMacos(downloadUrl, targetDir)
         }
     }
 
+    // ------------------------------------------------------------------
+    // Windows extraction – strict whitelist of required DLLs
+    // ------------------------------------------------------------------
     private fun downloadAndStripWindows(urlStr: String, targetDir: File) {
-        // Explicit strict whitelist of necessary streaming audio files
         val allowedFiles = setOf(
             "libvlc.dll",
             "libvlccore.dll",
@@ -216,10 +214,7 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
                         entry = zip.nextEntry
                         continue
                     }
-
-                    // Direct O(1) matching against our clean, strict whitelist
                     val keep = relativePath in allowedFiles
-
                     if (keep) {
                         val destFile = File(targetDir, relativePath)
                         if (entry.isDirectory) {
@@ -230,12 +225,155 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
                         }
                     }
                     entry = zip.nextEntry
-
-                    // Updated scannable debug log output
-                    println("Processed entry: $name | Keep: $keep")
                 }
             }
         }
         println("Windows streaming audio binaries successfully filtered and unpacked.")
     }
-}
+
+    // ------------------------------------------------------------------
+    // macOS extraction – download DMG, mount, copy, strip, unmount
+    // ------------------------------------------------------------------
+    private fun downloadAndStripMacos(urlStr: String, targetDir: File) {
+        // Whitelist of audio‑only plugins (flat list, as they appear in the DMG)
+        val allowedPlugins = setOf(
+            "plugins.dat",
+
+            // access / networking
+            "libfilesystem_plugin.dylib",
+            "libhttp_plugin.dylib",
+            "libhttps_plugin.dylib",
+
+            // audio_filter / mixing
+            "libaudio_format_plugin.dylib",
+            "libmad_plugin.dylib",
+            "libsamplerate_plugin.dylib",
+            "libsimple_channel_mixer_plugin.dylib",
+            "libspeex_resampler_plugin.dylib",
+            "libtrivial_channel_mixer_plugin.dylib",
+            "libfloat_mixer_plugin.dylib",
+            "libinteger_mixer_plugin.dylib",
+
+            // native apple coreaudio pipeline modules
+            "libauhal_plugin.dylib",
+            "libamem_plugin.dylib",
+
+            // codecs
+            "libadpcm_plugin.dylib",
+            "libaes3_plugin.dylib",
+            "libaraw_plugin.dylib",
+            "libfaad_plugin.dylib",
+            "libflac_plugin.dylib",
+            "libg711_plugin.dylib",
+            "liblpcm_plugin.dylib",
+            "libmpg123_plugin.dylib",
+            "libopus_plugin.dylib",
+            "libspeex_plugin.dylib",
+            "libvorbis_plugin.dylib",
+
+            // demuxers
+            "libaiff_plugin.dylib",
+            "libau_plugin.dylib",
+            "libcaf_plugin.dylib",
+            "libflacsys_plugin.dylib",
+            "libmp4_plugin.dylib",
+            "libmpc_plugin.dylib",
+            "libogg_plugin.dylib",
+            "libplaylist_plugin.dylib",
+            "librawaud_plugin.dylib",
+            "libvoc_plugin.dylib",
+            "libwav_plugin.dylib",
+
+            // security & core parsing utilities
+            "libgnutls_plugin.dylib",
+            "libxml_plugin.dylib",
+
+            // packetizers
+            "libpacketizer_copy_plugin.dylib",
+            "libpacketizer_flac_plugin.dylib",
+            "libpacketizer_mlp_plugin.dylib",
+            "libpacketizer_mpeg4audio_plugin.dylib",
+            "libpacketizer_mpegaudio_plugin.dylib",
+
+            // stream optimization filters
+            "libcache_block_plugin.dylib",
+            "libcache_read_plugin.dylib",
+            "libinflate_plugin.dylib",
+            "libprefetch_plugin.dylib"
+        )
+
+        val dmgFile = File(buildDirectory.asFile.get(), "vlc-tmp.dmg")
+        println("Downloading VLC DMG...")
+        URL(urlStr).openStream().use { input ->
+            dmgFile.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        println("Mounting DMG...")
+        val mountProcess = ProcessBuilder("hdiutil", "attach", "-nobrowse", "-readonly", dmgFile.absolutePath)
+            .redirectErrorStream(true)
+            .start()
+        val mountOutput = mountProcess.inputStream.bufferedReader().readText()
+        mountProcess.waitFor()
+        val mountPoint = mountOutput.lines().lastOrNull { it.contains("/Volumes/") }
+            ?.trim()
+            ?.split("\t")?.lastOrNull()
+            ?: throw GradleException("Failed to mount DMG, mount point not found")
+        println("Mounted at: $mountPoint")
+
+        try {
+            val appDir = File(mountPoint, "VLC.app")
+            if (!appDir.exists()) throw GradleException("VLC.app not found in DMG")
+
+            val libSrcDir = File(appDir, "Contents/MacOS/lib")
+            val pluginsSrcDir = File(appDir, "Contents/MacOS/plugins")
+
+            // Copy the ENTIRE lib/ directory recursively (preserves real .dylib files)
+            val targetLibDir = File(targetDir, "lib")
+            libSrcDir.copyRecursively(targetLibDir, overwrite = true)
+
+            ProcessBuilder(
+                "install_name_tool",
+                "-change", "@rpath/libvlccore.dylib", "@loader_path/libvlccore.dylib",
+                File(targetLibDir, "libvlc.dylib").absolutePath
+            ).inheritIO().start().waitFor()
+
+            ProcessBuilder(
+                "install_name_tool",
+                "-id", "@loader_path/libvlccore.dylib",
+                File(targetLibDir, "libvlccore.dylib").absolutePath
+            ).inheritIO().start().waitFor()
+
+            ProcessBuilder("xattr", "-dr", "com.apple.quarantine", targetDir.absolutePath)
+                .inheritIO().start().waitFor()
+
+            listOf(File(targetDir, "lib"), File(targetDir, "plugins")).forEach { dir ->
+                dir.walkTopDown().filter { it.extension == "dylib" }.forEach { file ->
+                    ProcessBuilder("codesign", "--force", "--sign", "-", file.absolutePath)
+                        .inheritIO()
+                        .start()
+                        .waitFor()
+                }
+            }
+
+            // Copy only whitelisted plugins into targetDir/plugins/
+            val targetPluginsDir = File(targetDir, "plugins")
+            targetPluginsDir.mkdirs()
+            allowedPlugins.forEach { pluginName ->
+                val src = File(pluginsSrcDir, pluginName)
+                if (src.exists()) {
+                    src.copyTo(File(targetPluginsDir, pluginName), overwrite = true)
+                } else {
+                    println("Warning: missing whitelisted plugin: $pluginName")
+                }
+            }
+        } finally {
+            ProcessBuilder("hdiutil", "detach", mountPoint)
+                .redirectErrorStream(true)
+                .start()
+                .waitFor()
+            dmgFile.delete()
+        }
+        println("macOS streaming audio binaries successfully filtered and unpacked.")
+    }}
