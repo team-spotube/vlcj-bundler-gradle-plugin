@@ -19,22 +19,25 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
     override fun apply(project: Project) {
 
         // 1. Register User Extension DSL
-        val extension = project.extensions.create("vlcjBundler", VlcjBundlerExtension::class.java).apply {
-            packageName.convention("dev.krtirtho.spotube.core.audioplayer")
-            objectName.convention("VLCBundleLoader")
-        }
+        val extension =
+            project.extensions.create("vlcjBundler", VlcjBundlerExtension::class.java).apply {
+                packageName.convention("dev.krtirtho.spotube.core.audioplayer")
+                objectName.convention("VLCBundleLoader")
+            }
 
         // 2. Register the Code Generation Task
-        val generateLoaderTask = project.tasks.register("generateVlcBundleLoader", GenerateVlcLoaderTask::class.java) {
-            packageName.set(extension.packageName)
-            objectName.set(extension.objectName)
-            outputDirectory.set(project.layout.buildDirectory.dir("generated/vlcjBundler/vlcjOut"))
-        }
+        val generateLoaderTask =
+            project.tasks.register("generateVlcBundleLoader", GenerateVlcLoaderTask::class.java) {
+                packageName.set(extension.packageName)
+                objectName.set(extension.objectName)
+                outputDirectory.set(project.layout.buildDirectory.dir("generated/vlcjBundler/vlcjOut"))
+            }
 
         // 3. Register the Automated Binary Extraction Task
-        val downloadTask = project.tasks.register("downloadVlcNatives", DownloadVlcNativesTask::class.java) {
-            buildDirectory.set(project.layout.buildDirectory)
-        }
+        val downloadTask =
+            project.tasks.register("downloadVlcNatives", DownloadVlcNativesTask::class.java) {
+                buildDirectory.set(project.layout.buildDirectory)
+            }
 
         // 4. Source set registration – JVM only (desktop)
         project.afterEvaluate {
@@ -53,10 +56,12 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
         // 5. Reactive Hook into JetBrains Compose Plugin Setup
         project.plugins.withId("org.jetbrains.compose") {
             val composeExt = project.extensions.findByType(ComposeExtension::class.java)
-            val desktopExt = (composeExt as? ExtensionAware)?.extensions?.findByType(DesktopExtension::class.java)
+            val desktopExt =
+                (composeExt as? ExtensionAware)?.extensions?.findByType(DesktopExtension::class.java)
 
             if (desktopExt != null) {
-                val appResourcesRootDir = desktopExt.application.nativeDistributions.appResourcesRootDir
+                val appResourcesRootDir =
+                    desktopExt.application.nativeDistributions.appResourcesRootDir
                 appResourcesRootDir.set(project.layout.buildDirectory.dir("vlc-natives"))
             }
         }
@@ -80,7 +85,8 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
 
     init {
         group = "dependencies"
-        description = "Downloads and extracts lightweight VLC audio binaries directly into the build cache."
+        description =
+            "Downloads and extracts lightweight VLC audio binaries directly into the build cache."
     }
 
     @TaskAction
@@ -97,9 +103,11 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
                     "win-x64" to "https://get.videolan.org/vlc/$vlcVersion/win64/vlc-$vlcVersion-win64.zip"
                 }
             }
+
             os.contains("mac") -> {
                 "macos-universal" to "https://get.videolan.org/vlc/$vlcVersion/macosx/vlc-$vlcVersion-universal.dmg"
             }
+
             else -> "linux-x64" to ""
         }
 
@@ -126,11 +134,76 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
     }
 
     private fun downloadAndStripWindows(urlStr: String, targetDir: File) {
-        val allowedPluginFolders = listOf(
-            "access", "access_output", "audio_filter", "audio_mixer",
-            "audio_output", "codec", "control", "demux",
-            "keystore", "logger", "meta_engine", "misc", "packetizer",
-            "services_discovery", "stream_filter"
+        // Explicit strict whitelist of necessary streaming audio files
+        val allowedFiles = setOf(
+            "libvlc.dll",
+            "libvlccore.dll",
+
+            // access
+            "plugins/access/libfilesystem_plugin.dll",
+            "plugins/access/libhttp_plugin.dll",
+            "plugins/access/libhttps_plugin.dll",
+
+            // audio_filter
+            "plugins/audio_filter/libaudio_format_plugin.dll",
+            "plugins/audio_filter/libmad_plugin.dll",
+            "plugins/audio_filter/libsamplerate_plugin.dll",
+            "plugins/audio_filter/libsimple_channel_mixer_plugin.dll",
+            "plugins/audio_filter/libspeex_resampler_plugin.dll",
+            "plugins/audio_filter/libtrivial_channel_mixer_plugin.dll",
+
+            // audio_mixer
+            "plugins/audio_mixer/libfloat_mixer_plugin.dll",
+            "plugins/audio_mixer/libinteger_mixer_plugin.dll",
+
+            // audio_output
+            "plugins/audio_output/libdirectsound_plugin.dll",
+            "plugins/audio_output/libmmdevice_plugin.dll",
+            "plugins/audio_output/libwasapi_plugin.dll",
+            "plugins/audio_output/libwaveout_plugin.dll",
+
+            // codec
+            "plugins/codec/libadpcm_plugin.dll",
+            "plugins/codec/libaes3_plugin.dll",
+            "plugins/codec/libaraw_plugin.dll",
+            "plugins/codec/libfaad_plugin.dll",
+            "plugins/codec/libflac_plugin.dll",
+            "plugins/codec/libg711_plugin.dll",
+            "plugins/codec/liblpcm_plugin.dll",
+            "plugins/codec/libmpg123_plugin.dll",
+            "plugins/codec/libopus_plugin.dll",
+            "plugins/codec/libspeex_plugin.dll",
+            "plugins/codec/libvorbis_plugin.dll",
+
+            // demux
+            "plugins/demux/libaiff_plugin.dll",
+            "plugins/demux/libau_plugin.dll",
+            "plugins/demux/libcaf_plugin.dll",
+            "plugins/demux/libflacsys_plugin.dll",
+            "plugins/demux/libmp4_plugin.dll",
+            "plugins/demux/libmpc_plugin.dll",
+            "plugins/demux/libogg_plugin.dll",
+            "plugins/demux/libplaylist_plugin.dll",
+            "plugins/demux/librawaud_plugin.dll",
+            "plugins/demux/libvoc_plugin.dll",
+            "plugins/demux/libwav_plugin.dll",
+
+            // misc
+            "plugins/misc/libgnutls_plugin.dll",
+            "plugins/misc/libxml_plugin.dll",
+
+            // packetizer
+            "plugins/packetizer/libpacketizer_copy_plugin.dll",
+            "plugins/packetizer/libpacketizer_flac_plugin.dll",
+            "plugins/packetizer/libpacketizer_mlp_plugin.dll",
+            "plugins/packetizer/libpacketizer_mpeg4audio_plugin.dll",
+            "plugins/packetizer/libpacketizer_mpegaudio_plugin.dll",
+
+            // stream_filter
+            "plugins/stream_filter/libcache_block_plugin.dll",
+            "plugins/stream_filter/libcache_read_plugin.dll",
+            "plugins/stream_filter/libinflate_plugin.dll",
+            "plugins/stream_filter/libprefetch_plugin.dll"
         )
 
         URL(urlStr).openStream().use { stream ->
@@ -144,18 +217,10 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
                         continue
                     }
 
-                    val isCoreLib = relativePath == "libvlc.dll" || relativePath == "libvlccore.dll"
-                    val isAudioPlugin = relativePath.startsWith("plugins/") && allowedPluginFolders.any { folder ->
-                        relativePath.startsWith("plugins/$folder/")
-                    }
+                    // Direct O(1) matching against our clean, strict whitelist
+                    val keep = relativePath in allowedFiles
 
-                    // Fixed: removed illegal backticks around relativePath
-                    val isVideoAsset = relativePath.contains("avcodec") ||
-                            relativePath.contains("x264") ||
-                            relativePath.contains("x265") ||
-                            relativePath.contains("d3d")
-
-                    if ((isCoreLib || isAudioPlugin) && !isVideoAsset) {
+                    if (keep) {
                         val destFile = File(targetDir, relativePath)
                         if (entry.isDirectory) {
                             destFile.mkdirs()
@@ -165,6 +230,9 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
                         }
                     }
                     entry = zip.nextEntry
+
+                    // Updated scannable debug log output
+                    println("Processed entry: $name | Keep: $keep")
                 }
             }
         }
