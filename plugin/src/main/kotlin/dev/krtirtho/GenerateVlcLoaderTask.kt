@@ -53,30 +53,7 @@ abstract class GenerateVlcLoaderTask : DefaultTask() {
             object $$objName {
                 fun getVerifiedPath(): String {
                     val os = System.getProperty("os.name").lowercase()
-                    val arch = System.getProperty("os.arch").lowercase()
-
-                    val osDir = when {
-                        os.contains("win") -> "win-x64"
-                        os.contains("mac") -> "macos-universal"
-                        else -> "linux-x64"
-                    }
-
-                    val appResourcesDir = System.getProperty("compose.application.resources.dir")
-                    var vlcPath = File(appResourcesDir ?: "", osDir)
-
-                    if (appResourcesDir == null || !vlcPath.exists()) {
-                        val projectRoot = File(System.getProperty("user.dir"))
-                        val possibleDevPaths = listOf(
-                            File(projectRoot, "build/vlc-natives/$osDir"),            // If user.dir is /composeApp
-                            File(projectRoot, "composeApp/build/vlc-natives/$osDir"), // If user.dir is root
-                            File(projectRoot, "vlc-natives/$osDir"),                  // Legacy root fallback
-                            File(projectRoot, "composeApp/vlc-natives/$osDir")         // Legacy module fallback
-                        )
-                        vlcPath = possibleDevPaths.firstOrNull { it.exists() }
-                            ?: throw IllegalStateException("VLC binaries missing globally.")
-                    }
-
-                    val absolutePath = vlcPath.absolutePath
+                    val absolutePath = File(System.getProperty("compose.application.resources.dir")).absolutePath
                     
                     if (os.contains("mac")) {
                         val pluginsPath = "$absolutePath/plugins"

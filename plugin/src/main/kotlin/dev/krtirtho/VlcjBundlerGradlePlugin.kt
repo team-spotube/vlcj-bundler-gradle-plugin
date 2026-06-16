@@ -6,6 +6,7 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.plugins.ExtensionAware
+import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import org.jetbrains.compose.ComposeExtension
 import org.jetbrains.compose.desktop.DesktopExtension
@@ -18,15 +19,12 @@ import java.util.zip.ZipInputStream
 
 class VlcjBundlerGradlePlugin : Plugin<Project> {
     override fun apply(project: Project) {
-
-        // 1. Register User Extension DSL
         val extension =
             project.extensions.create("vlcjBundler", VlcjBundlerExtension::class.java).apply {
                 packageName.convention("dev.krtirtho.spotube.core.audioplayer")
                 objectName.convention("VLCBundleLoader")
             }
 
-        // 2. Register the Code Generation Task
         val generateLoaderTask =
             project.tasks.register("generateVlcBundleLoader", GenerateVlcLoaderTask::class.java) {
                 packageName.set(extension.packageName)
@@ -34,13 +32,12 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
                 outputDirectory.set(project.layout.buildDirectory.dir("generated/vlcjBundler/vlcjOut"))
             }
 
-        // 3. Register the Automated Binary Extraction Task
+        // 1. Register the download task and explicitly give it its output target
         val downloadTask =
             project.tasks.register("downloadVlcNatives", DownloadVlcNativesTask::class.java) {
-                buildDirectory.set(project.layout.buildDirectory)
+                vlcNativesDirectory.set(project.layout.buildDirectory.dir("vlc-natives"))
             }
 
-        // 4. Source set registration – JVM only (desktop)
         project.afterEvaluate {
             val isMultiplatform = plugins.hasPlugin("org.jetbrains.kotlin.multiplatform")
             val isJvm = plugins.hasPlugin("org.jetbrains.kotlin.jvm")
@@ -54,25 +51,20 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
             }
         }
 
-        // 5. Reactive Hook into JetBrains Compose Plugin Setup
+        // 2. Wire the output directory directly into Compose.
+        // Wrapping this in afterEvaluate ensures we don't conflict with early compose configurations.
         project.plugins.withId("org.jetbrains.compose") {
-            val composeExt = project.extensions.findByType(ComposeExtension::class.java)
-            val desktopExt =
-                (composeExt as? ExtensionAware)?.extensions?.findByType(DesktopExtension::class.java)
-
-            if (desktopExt != null) {
-                val appResourcesRootDir =
-                    desktopExt.application.nativeDistributions.appResourcesRootDir
-                appResourcesRootDir.set(project.layout.buildDirectory.dir("vlc-natives"))
+            project.afterEvaluate {
+                val composeExt = project.extensions.findByType(ComposeExtension::class.java)
+                val desktopExt =
+                    (composeExt as? ExtensionAware)?.extensions?.findByType(DesktopExtension::class.java)
+                desktopExt?.application?.nativeDistributions?.appResourcesRootDir?.set(
+                    downloadTask.flatMap { it.vlcNativesDirectory }
+                )
             }
         }
 
-        // 6. Map Task Dependencies Automatically
-        project.tasks.configureEach {
-            if (name.startsWith("package") || name.startsWith("prepareAppResources") || name == "run") {
-                dependsOn(downloadTask)
-            }
-        }
+        // REMOVED: The old project.tasks.configureEach string-matching hook is no longer needed!
     }
 }
 
@@ -81,8 +73,8 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
 // --------------------------------------------------------------------
 abstract class DownloadVlcNativesTask : DefaultTask() {
 
-    @get:org.gradle.api.tasks.Internal
-    abstract val buildDirectory: DirectoryProperty
+    @get:OutputDirectory
+    abstract val vlcNativesDirectory: DirectoryProperty
 
     init {
         group = "dependencies"
@@ -98,14 +90,14 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
         val (osDir, downloadUrl) = when {
             os.contains("win") -> {
                 if (arch.contains("aarch64") || arch.contains("arm64")) {
-                    "win-arm64" to "http://ftp.videolan.org/pub/videolan/vlc/$vlcVersion/winarm64/vlc-$vlcVersion-winarm64.zip"
+                    "windows-arm64" to "http://ftp.videolan.org/pub/videolan/vlc/$vlcVersion/winarm64/vlc-$vlcVersion-winarm64.zip"
                 } else {
-                    "win-x64" to "http://ftp.videolan.org/pub/videolan/vlc/$vlcVersion/win64/vlc-$vlcVersion-win64.zip"
+                    "windows-x64" to "http://ftp.videolan.org/pub/videolan/vlc/$vlcVersion/win64/vlc-$vlcVersion-win64.zip"
                 }
             }
 
             os.contains("mac") -> {
-                "macos-universal" to "http://ftp.videolan.org/pub/videolan/vlc/$vlcVersion/macosx/vlc-$vlcVersion-universal.dmg"
+                "macos" to "http://ftp.videolan.org/pub/videolan/vlc/$vlcVersion/macosx/vlc-$vlcVersion-universal.dmg"
             }
 
             else -> "linux-x64" to ""
@@ -116,7 +108,7 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
             return
         }
 
-        val targetDir = buildDirectory.dir("vlc-natives/$osDir").get().asFile
+        val targetDir = vlcNativesDirectory.dir(osDir).get().asFile
         if (targetDir.exists() && targetDir.list()?.isNotEmpty() == true) {
             println("VLC binaries already present in build folder cache. Skipping download.")
             return
@@ -296,7 +288,7 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
             "libprefetch_plugin.dylib"
         )
 
-        val dmgFile = File(buildDirectory.asFile.get(), "vlc-tmp.dmg")
+        val dmgFile = File(targetDir.parentFile.parentFile, "vlc-tmp.dmg")
         println("Downloading VLC DMG...")
         if (!dmgFile.exists()) {
             URL(urlStr).openStream().use { input ->
