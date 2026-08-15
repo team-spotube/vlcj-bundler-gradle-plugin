@@ -53,7 +53,14 @@ abstract class GenerateVlcLoaderTask : DefaultTask() {
             object $$objName {
                 fun getVerifiedPath(): String {
                     val os = System.getProperty("os.name").lowercase()
-                    val absolutePath = File(System.getProperty("compose.application.resources.dir")).absolutePath
+                    val resourcesDir = System.getProperty("compose.application.resources.dir")
+                    val absolutePath = if (resourcesDir == null) {
+                        // Running outside the Compose launcher (e.g. IDE debug): the property is
+                        // only set by run/hotRun/packaged tasks. Fall back to the Gradle download dir.
+                        File(System.getProperty("user.dir"), "build/vlc-natives").absolutePath
+                    } else {
+                        File(resourcesDir).absolutePath
+                    }
                     
                     if (os.contains("mac")) {
                         val pluginsPath = "$absolutePath/plugins"

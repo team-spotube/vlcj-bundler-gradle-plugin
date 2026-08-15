@@ -5,11 +5,8 @@ import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.plugins.ExtensionAware
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
-import org.jetbrains.compose.ComposeExtension
-import org.jetbrains.compose.desktop.DesktopExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinProjectExtension
 import java.io.File
@@ -38,6 +35,9 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
                 vlcNativesDirectory.set(project.layout.buildDirectory.dir("vlc-natives"))
             }
 
+        // Expose the download location so the user can wire it into their own Compose config
+        extension.vlcNativesDirectory.set(downloadTask.flatMap { it.vlcNativesDirectory })
+
         project.afterEvaluate {
             val isMultiplatform = plugins.hasPlugin("org.jetbrains.kotlin.multiplatform")
             val isJvm = plugins.hasPlugin("org.jetbrains.kotlin.jvm")
@@ -50,21 +50,6 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
                 kotlinExtension.sourceSets.findByName("main")?.kotlin?.srcDir(generateLoaderTask)
             }
         }
-
-        // 2. Wire the output directory directly into Compose.
-        // Wrapping this in afterEvaluate ensures we don't conflict with early compose configurations.
-        project.plugins.withId("org.jetbrains.compose") {
-            project.afterEvaluate {
-                val composeExt = project.extensions.findByType(ComposeExtension::class.java)
-                val desktopExt =
-                    (composeExt as? ExtensionAware)?.extensions?.findByType(DesktopExtension::class.java)
-                desktopExt?.application?.nativeDistributions?.appResourcesRootDir?.set(
-                    downloadTask.flatMap { it.vlcNativesDirectory }
-                )
-            }
-        }
-
-        // REMOVED: The old project.tasks.configureEach string-matching hook is no longer needed!
     }
 }
 

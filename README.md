@@ -58,6 +58,30 @@ plugins {
 }
 ```
 
+The plugin downloads the VLC native binaries to a build directory exposed via the
+`vlcjBundler` extension. To actually bundle those binaries into your Compose Desktop
+package, point Compose's `appResourcesRootDir` at that directory:
+
+```kotlin
+compose.desktop {
+    application {
+        nativeDistributions {
+            appResourcesRootDir.set(vlcjBundler.vlcNativesDirectory)
+        }
+    }
+}
+```
+
+### Configuration
+
+The `vlcjBundler` extension exposes the following properties:
+
+| Property | Description | Default |
+| --- | --- | --- |
+| `packageName` | Target package for the generated loader file | `dev.krtirtho.spotube.core.audioplayer` |
+| `objectName` | Class/Object name for the generated file | `VLCBundleLoader` |
+| `vlcNativesDirectory` | Directory the VLC natives are downloaded to | `build/vlc-natives` |
+
 ## License
 
 Copyright (C) 2026 spotube.cc
