@@ -7,6 +7,8 @@ import java.io.File
 import kotlin.test.assertTrue
 import kotlin.test.Test
 import org.gradle.testkit.runner.GradleRunner
+import org.gradle.testkit.runner.TaskOutcome
+import kotlin.test.assertEquals
 import org.junit.jupiter.api.io.TempDir
 
 /**
@@ -26,21 +28,13 @@ class VlcjBundlerGradlePluginPluginFunctionalTest {
 
         buildFile.writeText("""
             plugins {
-                kotlin("jvm") version "2.3.0"
-                id("org.jetbrains.kotlin.plugin.compose") version "2.3.0"
-                id("org.jetbrains.compose") version "1.10.3"
-                id("org.spotube.vlcj-bundler.gradle-plugin")
+                kotlin("jvm")
+                id("org.spotube.vlcj-bundler")
             }
             
             repositories {
                 mavenCentral()
                 google()
-            }
-            
-            compose.desktop {
-                application {
-                    mainClass = "MainKt"
-                }
             }
         """.trimIndent())
 
@@ -52,8 +46,7 @@ class VlcjBundlerGradlePluginPluginFunctionalTest {
             .build()
 
         // Assert that the task executed successfully
-        assertTrue(result.output.contains("Windows streaming audio binaries successfully filtered") ||
-                result.output.contains("Automatic extraction of Mac DMG files"))
+        assertEquals(TaskOutcome.SUCCESS, result.task(":downloadVlcNatives")?.outcome)
 
         // Assert that the build folder sandbox was created
         val vlcNativesDir = File(testProjectDir, "build/vlc-natives")

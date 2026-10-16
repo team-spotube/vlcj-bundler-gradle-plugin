@@ -10,11 +10,15 @@ plugins {
     `java-gradle-plugin`
     `kotlin-dsl`
     `maven-publish`
+    alias(libs.plugins.gradle.publish)
 
     // Apply the Kotlin JVM plugin to add support for Kotlin.
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.compose) apply false
 }
+
+group = "org.spotube"
+version = "0.1.0"
 
 repositories {
     // Use Maven Central for resolving dependencies.
@@ -33,12 +37,13 @@ dependencies {
 }
 
 gradlePlugin {
-    group = "org.spotube"
+    website.set("https://github.com/team-spotube/vlcj-bundler-gradle-plugin")
+    vcsUrl.set("https://github.com/team-spotube/vlcj-bundler-gradle-plugin.git")
     // Define the plugin
     val vlcjBundlerGradlePlugin by plugins.creating {
         id = "org.spotube.vlcj-bundler"
         implementationClass = "org.spotube.VlcjBundlerGradlePlugin"
-        version = "0.1.0"
+        tags.set(listOf("vlc", "vlcj", "compose", "kotlin-multiplatform", "desktop"))
         displayName = "vlcj Bundler Gradle Plugin"
         description = "A Gradle plugin for vlcj that packages VLC native libraries into Compose-Multiplatform projects."
     }
@@ -68,4 +73,18 @@ tasks.named<Task>("check") {
 tasks.named<Test>("test") {
     // Use JUnit Jupiter for unit tests.
     useJUnitPlatform()
+}
+
+// Kotlin/Compose plugins are compileOnly (consumers provide them), so expose their full runtime to TestKit
+val testKitPlugins by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+}
+dependencies {
+    testKitPlugins(libs.kotlinLib)
+    testKitPlugins(libs.composeLib)
+}
+tasks.named<PluginUnderTestMetadata>("pluginUnderTestMetadata") {
+    pluginClasspath.from(testKitPlugins)
 }

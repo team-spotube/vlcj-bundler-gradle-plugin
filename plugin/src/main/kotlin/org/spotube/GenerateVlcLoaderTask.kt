@@ -1,5 +1,6 @@
 package org.spotube
 
+import org.gradle.work.DisableCachingByDefault
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
@@ -8,6 +9,7 @@ import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import java.io.File
 
+@DisableCachingByDefault(because = "Generates a small source file; not worth caching")
 abstract class GenerateVlcLoaderTask : DefaultTask() {
 
     @get:Input

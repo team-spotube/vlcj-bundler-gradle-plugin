@@ -1,5 +1,6 @@
 package org.spotube
 
+import org.gradle.work.DisableCachingByDefault
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
@@ -56,6 +57,7 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
 // --------------------------------------------------------------------
 // TASK: Download & extract VLC natives for both Windows and macOS
 // --------------------------------------------------------------------
+@DisableCachingByDefault(because = "Downloads from the network")
 abstract class DownloadVlcNativesTask : DefaultTask() {
 
     @get:OutputDirectory
