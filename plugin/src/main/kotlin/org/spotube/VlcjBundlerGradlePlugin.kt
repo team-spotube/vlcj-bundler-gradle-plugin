@@ -1,4 +1,4 @@
-package dev.krtirtho
+package org.spotube
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
@@ -18,7 +18,7 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
     override fun apply(project: Project) {
         val extension =
             project.extensions.create("vlcjBundler", VlcjBundlerExtension::class.java).apply {
-                packageName.convention("dev.krtirtho.spotube.core.audioplayer")
+                packageName.convention("org.spotube.core.audioplayer")
                 objectName.convention("VLCBundleLoader")
             }
 

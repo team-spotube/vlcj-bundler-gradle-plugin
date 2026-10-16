@@ -1,11 +1,11 @@
-package dev.krtirtho
+package org.spotube
 
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
 
 interface VlcjBundlerExtension {
     /**
-     * Target package for the generated loader file. Defaults to "dev.krtirtho.spotube.core.audioplayer"
+     * Target package for the generated loader file. Defaults to "org.spotube.core.audioplayer"
      */
     val packageName: Property<String>
 

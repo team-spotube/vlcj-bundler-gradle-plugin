@@ -16,9 +16,6 @@ plugins {
     alias(libs.plugins.compose) apply false
 }
 
-group = "dev.krtirtho.vlcj-bundler"
-version = "0.1.0"
-
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
@@ -36,10 +33,11 @@ dependencies {
 }
 
 gradlePlugin {
+    group = "org.spotube"
     // Define the plugin
     val vlcjBundlerGradlePlugin by plugins.creating {
-        id = "dev.krtirtho.vlcj-bundler.gradle-plugin"
-        implementationClass = "dev.krtirtho.VlcjBundlerGradlePlugin"
+        id = "org.spotube.vlcj-bundler"
+        implementationClass = "org.spotube.VlcjBundlerGradlePlugin"
         version = "0.1.0"
         displayName = "vlcj Bundler Gradle Plugin"
         description = "A Gradle plugin for vlcj that packages VLC native libraries into Compose-Multiplatform projects."

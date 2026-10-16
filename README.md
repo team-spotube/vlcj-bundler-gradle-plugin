@@ -18,7 +18,7 @@ This plugin automatically creates packaging tasks when applied alongside the [vl
 
 ```groovy
 plugins {
-    id 'dev.krtirtho.vlcj-bundler.gradle-plugin' version '0.1.0'
+    id 'org.spotube.vlcj-bundler.gradle-plugin' version '0.1.0'
 }
 ```
 
@@ -26,7 +26,7 @@ plugins {
 
 ```kotlin
 plugins {
-    id("dev.krtirtho.vlcj-bundler.gradle-plugin") version "0.1.0"
+    id("org.spotube.vlcj-bundler.gradle-plugin") version "0.1.0"
 }
 ```
 
@@ -36,7 +36,7 @@ Add the plugin to your version catalog (`gradle/libs.versions.toml`):
 
 ```toml
 [plugins]
-vlcj-bundler = { id = "dev.krtirtho.vlcj-bundler.gradle-plugin", version = "0.1.0" }
+vlcj-bundler = { id = "org.spotube.vlcj-bundler.gradle-plugin", version = "0.1.0" }
 ```
 
 Then reference it in your build files:
@@ -54,7 +54,7 @@ Apply the plugin after the vlcj plugin:
 
 ```kotlin
 plugins {
-    id("dev.krtirtho.vlcj-bundler.gradle-plugin")
+    id("org.spotube.vlcj-bundler.gradle-plugin")
 }
 ```
 
@@ -78,7 +78,7 @@ The `vlcjBundler` extension exposes the following properties:
 
 | Property | Description | Default |
 | --- | --- | --- |
-| `packageName` | Target package for the generated loader file | `dev.krtirtho.spotube.core.audioplayer` |
+| `packageName` | Target package for the generated loader file | `org.spotube.core.audioplayer` |
 | `objectName` | Class/Object name for the generated file | `VLCBundleLoader` |
 | `vlcNativesDirectory` | Directory the VLC natives are downloaded to | `build/vlc-natives` |
 

@@ -29,7 +29,7 @@ class VlcjBundlerGradlePluginPluginFunctionalTest {
                 kotlin("jvm") version "2.3.0"
                 id("org.jetbrains.kotlin.plugin.compose") version "2.3.0"
                 id("org.jetbrains.compose") version "1.10.3"
-                id("dev.krtirtho.vlcj-bundler.gradle-plugin")
+                id("org.spotube.vlcj-bundler.gradle-plugin")
             }
             
             repositories {

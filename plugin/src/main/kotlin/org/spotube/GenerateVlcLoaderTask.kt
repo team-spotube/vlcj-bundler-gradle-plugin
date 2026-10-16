@@ -1,4 +1,4 @@
-package dev.krtirtho
+package org.spotube
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
