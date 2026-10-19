@@ -12,5 +12,5 @@ kotlinLib = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", ver
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 compose = { id = "org.jetbrains.compose", version.ref = "compose" }
-gradle-publish = { id = "com.gradle.plugin-publish", version = "2.0.0" }
+maven-publish = { id = "com.vanniktech.maven.publish", version = "0.34.0" }
 

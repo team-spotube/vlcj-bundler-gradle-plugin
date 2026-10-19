@@ -14,6 +14,17 @@ This plugin automatically creates packaging tasks when applied alongside the [vl
 
 ## Installation
 
+The plugin is published to Maven Central (not the Gradle Plugin Portal), so add `mavenCentral()` to your plugin repositories in `settings.gradle.kts`:
+
+```kotlin
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+```
+
 ### Using the Plugin DSL (Groovy)
 
 ```groovy

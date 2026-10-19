@@ -9,8 +9,7 @@ plugins {
     // Apply the Java Gradle plugin development plugin to add support for developing Gradle plugins
     `java-gradle-plugin`
     `kotlin-dsl`
-    `maven-publish`
-    alias(libs.plugins.gradle.publish)
+    alias(libs.plugins.maven.publish)
 
     // Apply the Kotlin JVM plugin to add support for Kotlin.
     alias(libs.plugins.kotlin.jvm)
@@ -46,6 +45,41 @@ gradlePlugin {
         tags.set(listOf("vlc", "vlcj", "compose", "kotlin-multiplatform", "desktop"))
         displayName = "vlcj Bundler Gradle Plugin"
         description = "A Gradle plugin for vlcj that packages VLC native libraries into Compose-Multiplatform projects."
+    }
+}
+
+// Publishes to Maven Central (Central Portal), including the plugin marker artifact.
+// Requires mavenCentralUsername/Password and signing credentials (see publish workflow).
+mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
+
+    coordinates("org.spotube", "vlcj-bundler-gradle-plugin", version.toString())
+
+    pom {
+        name.set("vlcj Bundler Gradle Plugin")
+        description.set("A Gradle plugin for vlcj that packages VLC native libraries into Compose-Multiplatform projects.")
+        inceptionYear.set("2026")
+        url.set("https://github.com/team-spotube/vlcj-bundler-gradle-plugin")
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                distribution.set("repo")
+            }
+        }
+        developers {
+            developer {
+                id.set("team-spotube")
+                name.set("Team Spotube")
+                url.set("https://github.com/team-spotube")
+            }
+        }
+        scm {
+            url.set("https://github.com/team-spotube/vlcj-bundler-gradle-plugin")
+            connection.set("scm:git:git://github.com/team-spotube/vlcj-bundler-gradle-plugin.git")
+            developerConnection.set("scm:git:ssh://git@github.com/team-spotube/vlcj-bundler-gradle-plugin.git")
+        }
     }
 }
 
