@@ -92,6 +92,23 @@ The `vlcjBundler` extension exposes the following properties:
 | `packageName` | Target package for the generated loader file | `org.spotube.core.audioplayer` |
 | `objectName` | Class/Object name for the generated file | `VLCBundleLoader` |
 | `vlcNativesDirectory` | Directory the VLC natives are downloaded to | `build/vlc-natives` |
+| `bundleVlc` | Whether VLC is downloaded and bundled at all. When `false`, `vlcNativesDirectory` stays empty and the generated loader uses the system VLC | `true` |
+| `linuxUbuntuRelease` | Linux only: Ubuntu release the libvlc binaries come from (its glibc is the bundle's minimum) | `noble` |
+
+### Choosing what to bundle
+
+Windows and macOS always need a bundled VLC. On Linux it is your call: distro packages (deb/rpm) should usually depend on the distro's VLC, while a self-contained format like AppImage should carry its own. Toggle it per build:
+
+```kotlin
+vlcjBundler {
+    // e.g. ./gradlew packageAppImage -PbundleVlc=true
+    bundleVlc = providers.gradleProperty("bundleVlc").map(String::toBoolean).getOrElse(false)
+}
+```
+
+### Linux
+
+With `bundleVlc = true` on Linux, the plugin takes libvlc, an audio-only plugin whitelist (the same as on Windows) and the codec/TLS libraries they need from the Ubuntu archive, and relocates them with `patchelf` (`RUNPATH=$ORIGIN`) into `linux-x64` / `linux-arm64`. Following the AppImage exclude list, libraries that must come from the host (glibc, `libstdc++`, `libz`, `libgmp`, ALSA, GL, X11) and `libdbus`/`libpulse` are not bundled. The build machine needs `ar`, `tar`, `zstd` and `patchelf`. The bundle runs on systems with glibc 2.38+ (Ubuntu 24.04's).
 
 ## License
 

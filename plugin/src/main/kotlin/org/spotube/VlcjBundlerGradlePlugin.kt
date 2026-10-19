@@ -6,6 +6,8 @@ import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
@@ -21,6 +23,8 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
             project.extensions.create("vlcjBundler", VlcjBundlerExtension::class.java).apply {
                 packageName.convention("org.spotube.core.audioplayer")
                 objectName.convention("VLCBundleLoader")
+                bundleVlc.convention(true)
+                linuxUbuntuRelease.convention("noble")
             }
 
         val generateLoaderTask =
@@ -34,6 +38,8 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
         val downloadTask =
             project.tasks.register("downloadVlcNatives", DownloadVlcNativesTask::class.java) {
                 vlcNativesDirectory.set(project.layout.buildDirectory.dir("vlc-natives"))
+                bundleVlc.set(extension.bundleVlc)
+                linuxUbuntuRelease.set(extension.linuxUbuntuRelease)
             }
 
         // Expose the download location so the user can wire it into their own Compose config
@@ -55,13 +61,19 @@ class VlcjBundlerGradlePlugin : Plugin<Project> {
 }
 
 // --------------------------------------------------------------------
-// TASK: Download & extract VLC natives for both Windows and macOS
+// TASK: Download & extract VLC natives for Windows, macOS and Linux
 // --------------------------------------------------------------------
 @DisableCachingByDefault(because = "Downloads from the network")
 abstract class DownloadVlcNativesTask : DefaultTask() {
 
     @get:OutputDirectory
     abstract val vlcNativesDirectory: DirectoryProperty
+
+    @get:Input
+    abstract val bundleVlc: Property<Boolean>
+
+    @get:Input
+    abstract val linuxUbuntuRelease: Property<String>
 
     init {
         group = "dependencies"
@@ -70,6 +82,13 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
 
     @TaskAction
     fun run() {
+        if (!bundleVlc.get()) {
+            // Drop anything an earlier bundling run left behind so it can't end up in the package
+            vlcNativesDirectory.get().asFile.apply { deleteRecursively(); mkdirs() }
+            println("VLC bundling is disabled (vlcjBundler.bundleVlc = false). The system VLC will be used.")
+            return
+        }
+
         val vlcVersion = "3.0.23"
         val os = System.getProperty("os.name").lowercase()
         val arch = System.getProperty("os.arch").lowercase()
@@ -87,7 +106,19 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
                 "macos" to "http://ftp.videolan.org/pub/videolan/vlc/$vlcVersion/macosx/vlc-$vlcVersion-universal.dmg"
             }
 
-            else -> "linux-x64" to ""
+            os.contains("linux") -> {
+                val isArm = arch.contains("aarch64") || arch.contains("arm64")
+                val osDir = if (isArm) "linux-arm64" else "linux-x64"
+                val targetDir = vlcNativesDirectory.dir(osDir).get().asFile
+                if (File(targetDir, ".complete").exists()) {
+                    println("VLC binaries already present in build folder cache. Skipping download.")
+                } else {
+                    LinuxVlcBundler.bundle(targetDir, isArm, linuxUbuntuRelease.get(), File(temporaryDir, "work"))
+                }
+                return
+            }
+
+            else -> "unsupported" to ""
         }
 
         if (downloadUrl.isEmpty()) {

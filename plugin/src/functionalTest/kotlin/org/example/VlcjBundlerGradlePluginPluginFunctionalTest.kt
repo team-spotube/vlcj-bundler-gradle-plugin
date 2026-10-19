@@ -52,4 +52,41 @@ class VlcjBundlerGradlePluginPluginFunctionalTest {
         val vlcNativesDir = File(testProjectDir, "build/vlc-natives")
         assertTrue(vlcNativesDir.exists(), "The plugin should create a vlc-natives folder inside build/")
     }
+
+    @Test
+    fun `bundleVlc false downloads nothing and clears stale natives`() {
+        settingsFile.writeText("rootProject.name = \"vlc-test-sandbox\"")
+
+        buildFile.writeText("""
+            plugins {
+                kotlin("jvm")
+                id("org.spotube.vlcj-bundler")
+            }
+
+            repositories {
+                mavenCentral()
+            }
+
+            vlcjBundler {
+                bundleVlc = false
+            }
+        """.trimIndent())
+
+        val stale = File(testProjectDir, "build/vlc-natives/linux-x64/libvlc.so").apply {
+            parentFile.mkdirs()
+            writeText("stale")
+        }
+
+        val result = GradleRunner.create()
+            .withProjectDir(testProjectDir)
+            .withArguments("downloadVlcNatives", "--stacktrace")
+            .withPluginClasspath()
+            .build()
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":downloadVlcNatives")?.outcome)
+        val vlcNativesDir = File(testProjectDir, "build/vlc-natives")
+        assertTrue(vlcNativesDir.isDirectory)
+        assertTrue(vlcNativesDir.list().isNullOrEmpty(), "Nothing should be bundled when bundleVlc is false")
+        assertTrue(!stale.exists(), "Natives from an earlier bundling run must be removed")
+    }
 }

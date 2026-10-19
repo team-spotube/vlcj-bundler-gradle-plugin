@@ -20,4 +20,19 @@ interface VlcjBundlerExtension {
      * `appResourcesRootDir`.
      */
     val vlcNativesDirectory: DirectoryProperty
+
+    /**
+     * Whether to download VLC and make it part of [vlcNativesDirectory]. Defaults to true.
+     *
+     * When false nothing is downloaded, the directory is left empty, and the generated loader
+     * falls back to a system-wide VLC. Use it for packages that should rely on the distro's VLC
+     * (e.g. deb/rpm) while still bundling for self-contained ones (e.g. AppImage, Windows, macOS).
+     */
+    val bundleVlc: Property<Boolean>
+
+    /**
+     * Linux only: the Ubuntu release the libvlc binaries are taken from. Its glibc is the minimum
+     * the bundle runs on. Must be a release whose package names match "noble" (24.04). Defaults to "noble".
+     */
+    val linuxUbuntuRelease: Property<String>
 }

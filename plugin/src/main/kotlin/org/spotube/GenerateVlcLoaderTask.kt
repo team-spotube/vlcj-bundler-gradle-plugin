@@ -64,8 +64,10 @@ abstract class GenerateVlcLoaderTask : DefaultTask() {
                         File(resourcesDir).absolutePath
                     }
                     
-                    if (os.contains("mac")) {
-                        val pluginsPath = "$absolutePath/plugins"
+                    // libvlc reads VLC_PLUGIN_PATH from the process environment. Only point it at the
+                    // bundled plugins when they exist, so a system VLC keeps working when bundling is off.
+                    val pluginsPath = "$absolutePath/plugins"
+                    if ((os.contains("mac") || os.contains("linux")) && File(pluginsPath).isDirectory) {
                         try {
                             // Use JNA to invoke the native C standard library 'setenv' function directly.
                             // This seamlessly updates the process environment variables without violating JVM encapsulation.
