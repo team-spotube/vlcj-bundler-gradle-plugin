@@ -187,6 +187,7 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
             "plugins/demux/libau_plugin.dll",
             "plugins/demux/libcaf_plugin.dll",
             "plugins/demux/libflacsys_plugin.dll",
+            "plugins/demux/libmkv_plugin.dll", // Matroska/WebM, the container of YouTube's opus streams
             "plugins/demux/libmp4_plugin.dll",
             "plugins/demux/libmpc_plugin.dll",
             "plugins/demux/libogg_plugin.dll",
@@ -280,6 +281,7 @@ abstract class DownloadVlcNativesTask : DefaultTask() {
             "libau_plugin.dylib",
             "libcaf_plugin.dylib",
             "libflacsys_plugin.dylib",
+            "libmkv_plugin.dylib", // Matroska/WebM, the container of YouTube's opus streams
             "libmp4_plugin.dylib",
             "libmpc_plugin.dylib",
             "libogg_plugin.dylib",
